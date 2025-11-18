@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Proxy on Мини-блог об IT, Linux, Open Source, Tech</title><link>https://coyotle.ru/tags/proxy/</link><description>Recent content in Proxy on Мини-блог об IT, Linux, Open Source, Tech</description><generator>Hugo -- 0.152.2</generator><language>ru-RU</language><lastBuildDate>Thu, 04 Jan 2024 19:10:04 +0300</lastBuildDate><atom:link href="https://coyotle.ru/tags/proxy/index.xml" rel="self" type="application/rss+xml"/><item><title>Проброс портов через Xray реверс-прокси</title><link>https://coyotle.ru/posts/xray-proxy/</link><pubDate>Thu, 04 Jan 2024 19:10:04 +0300</pubDate><guid>https://coyotle.ru/posts/xray-proxy/</guid><description>&lt;p&gt;В заметке опишу как организовать доступ к серверу в локальной сети через Xray. Про базовую настройку Xray можно посмотреть &lt;a href="https://coyotle.ru/posts/xray-and-nginx/"&gt;тут&lt;/a&gt;.
+&lt;img alt="Схема" loading="lazy" src="https://coyotle.ru/posts/xray-proxy/proxy.png"&gt;&lt;/p&gt;
+&lt;p&gt;В терминологии xray схема с реверс-прокси состоит из двух участников: &lt;code&gt;portal&lt;/code&gt; и &lt;code&gt;bridge&lt;/code&gt;.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Portal - это сервер который доступен из интернет и который выполняет роль реверс-прокси.&lt;/li&gt;
+&lt;li&gt;Bridge - сервер/клиент который находится в приватной сети и через который осуществляется доступ к ресурсу в приватной сети.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Допустим у нас в локальной сети есть веб-сервер без публичного IP и мы хотим опубликовать его через xray portal.
+Клиенты из интернет будут подключаться к публичному серверу А и через служебный канал (vless, shadowsocks&amp;hellip;) между A и B получать доступ к приватному серверу.&lt;/p&gt;</description></item></channel></rss>
