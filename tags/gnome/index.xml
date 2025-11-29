@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Gnome on Мини-блог об IT, Linux, Open Source, Tech</title><link>https://coyotle.ru/tags/gnome/</link><description>Recent content in Gnome on Мини-блог об IT, Linux, Open Source, Tech</description><generator>Hugo -- 0.152.2</generator><language>ru-RU</language><lastBuildDate>Tue, 03 Jan 2023 18:55:56 +0300</lastBuildDate><atom:link href="https://coyotle.ru/tags/gnome/index.xml" rel="self" type="application/rss+xml"/><item><title>Удаляем Recent и Starred в Nautilus</title><link>https://coyotle.ru/posts/nautilus-tweak/</link><pubDate>Tue, 03 Jan 2023 18:55:56 +0300</pubDate><guid>https://coyotle.ru/posts/nautilus-tweak/</guid><description>&lt;p&gt;Нравится минималистичный вид Gnome &amp;#x2764;&amp;#xfe0f;, но иногда не хватает настроек.
+Например я не пользуюсь в Nautilus функцией &lt;em&gt;Избранное&lt;/em&gt; и &lt;em&gt;Недавние&lt;/em&gt;, но они всегда отображаются в меню и занимают место.
+Опишу как удалить из боковой панели закладки на эти разделы и изменить ширину боковой панели.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Проверено в Fedora Linux 37, Gnome 43.2&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="переопределение-встроенного-описания-ui"&gt;Переопределение встроенного описания UI&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Создаем каталог для переопределяемого ресурса:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir ~/.config/nautilus/ui
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Извлекаем из приложения ресурс с описанием главного окна:&lt;/p&gt;</description></item></channel></rss>

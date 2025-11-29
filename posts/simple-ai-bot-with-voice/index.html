@@ -1,0 +1,327 @@
+<!doctype html><html lang=ru dir=auto data-theme=auto><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>Добавляем ИИ боту распознавание голосовых сообщений | Мини-блог об IT, Linux, Open Source, Tech</title><meta name=keywords content="ai,ии,llm,llama-3,python,telegram"><meta name=description content='В продолжение предыдущей заметки давайте сделаем ещё один шаг и добавим возможность боту отвечать текстом на голосовые сообщения.
+Для распознования голоса будем использовать python обертку над whisper.cpp.
+Более подробно как работает бот смотрите предыдущий пост, тут я сделаю небольшой рефакторинг и добавлю новый обработчик для голосовых.
+Устанавливаем зависимости
+deep-translator==1.11.4
+llama_cpp_python==0.2.77
+loguru==0.7.2
+python-dotenv==1.0.1
+requests==2.32.3
+telebot==0.0.5
+whisper_cpp_python==0.2.0
+import datetime
+import os
+
+from uuid import uuid4
+
+import requests
+import telebot
+from deep_translator import GoogleTranslator
+from dotenv import load_dotenv
+from llama_cpp import Llama
+from loguru import logger
+from telebot.types import Message
+from whisper_cpp_python import Whisper
+
+load_dotenv()
+
+TG_TOKEN = os.getenv("TG_TOKEN")
+bot = telebot.TeleBot(TG_TOKEN)
+
+# Загружаем llama-3 модель
+llm = Llama(
+    model_path="./models/llama3/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf",
+    chat_format="llama-3",
+    verbose=False,
+    # n_gpu_layers=-1, # Uncomment to use GPU acceleration
+    # seed=1337, # Uncomment to set a specific seed
+    # n_ctx=2048, # Uncomment to increase the context window
+)
+
+# Загружаем whisper.cpp модель
+whisper_model = Whisper(model_path="./models/whisper/ggml-base.bin")
+
+# Словарь для хранения историй сообщений
+user_message_history = {}
+
+# Стартовое сообщение бота
+@bot.message_handler(commands=["start", "help"])
+def send_welcome(message: Message):
+    bot.send_message(message.chat.id, "Я ИИ бот на базе llama-3. Можешь отправить мне текстовое или голосовое сообщение.")
+
+
+# Вынесем логику работы с историей сообщений и llama моделью в отдельную функцию
+def create_chat_completion(user_id, text):
+    # Получаем историю сообщений текущего пользователя
+    user_history = user_message_history.get(user_id, [])
+    user_history.append({"role": "user", "content": text})
+
+    #  Добавим в контекст текущую дату и время
+    current_date_time = datetime.datetime.now().strftime("%d %B %Y, %H:%M MSK")
+    messages = [
+        {
+            "role": "system",
+            "content": f"Ты полезный ИИ помощник.\nТекущая дата: {current_date_time}",
+        },
+    ]
+
+    for msg in user_history[-10:]:
+        messages.append(msg)
+
+    out = llm.create_chat_completion(messages)
+    reply = out["choices"][0]["message"]["content"]
+    logger.info(f"assistant: {reply}")
+
+    # Добавляем ответ бота в историю текущего пользователя
+    user_history.append({"role": "assistant", "content": reply})
+    user_message_history[user_id] = user_history[-20:]
+
+    return reply
+
+# Обработчик текстовых сообщений
+@bot.message_handler(content_types=["text"])
+def message_handler(message: Message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    logger.info(f"user {user_id}: {message.text}")
+
+    bot.send_chat_action(chat_id, "typing")
+    reply = create_chat_completion(user_id, message.text)
+    # Отправляем ответ пользователю
+    bot.send_message(chat_id, reply)
+Добавляем обработчик голосовых сообщений'><meta name=author content><link rel=canonical href=https://coyotle.ru/posts/simple-ai-bot-with-voice/><link crossorigin=anonymous href=/assets/css/stylesheet.d6626ca70f3a7dda16dfce9eb29df152c81185d6739a741054093fb92b9e6839.css integrity="sha256-1mJspw86fdoW386esp3xUsgRhdZzmnQQVAk/uSueaDk=" rel="preload stylesheet" as=style><link rel=icon href=https://coyotle.ru/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://coyotle.ru/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://coyotle.ru/favicon-32x32.png><link rel=apple-touch-icon href=https://coyotle.ru/apple-touch-icon.png><link rel=mask-icon href=https://coyotle.ru/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><link rel=alternate hreflang=ru href=https://coyotle.ru/posts/simple-ai-bot-with-voice/><noscript><style>#theme-toggle,.top-link{display:none}</style><style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--code-block-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51);color-scheme:dark}.list{background:var(--theme)}.toc{background:var(--entry)}}@media(prefers-color-scheme:light){.list::-webkit-scrollbar-thumb{border-color:var(--code-bg)}}</style></noscript><script>localStorage.getItem("pref-theme")==="dark"?document.querySelector("html").dataset.theme="dark":localStorage.getItem("pref-theme")==="light"?document.querySelector("html").dataset.theme="light":window.matchMedia("(prefers-color-scheme: dark)").matches?document.querySelector("html").dataset.theme="dark":document.querySelector("html").dataset.theme="light"</script><meta property="og:url" content="https://coyotle.ru/posts/simple-ai-bot-with-voice/"><meta property="og:site_name" content="Мини-блог об IT, Linux, Open Source, Tech"><meta property="og:title" content="Добавляем ИИ боту распознавание голосовых сообщений"><meta property="og:description" content='В продолжение предыдущей заметки давайте сделаем ещё один шаг и добавим возможность боту отвечать текстом на голосовые сообщения. Для распознования голоса будем использовать python обертку над whisper.cpp.
+Более подробно как работает бот смотрите предыдущий пост, тут я сделаю небольшой рефакторинг и добавлю новый обработчик для голосовых.
+Устанавливаем зависимости
+deep-translator==1.11.4 llama_cpp_python==0.2.77 loguru==0.7.2 python-dotenv==1.0.1 requests==2.32.3 telebot==0.0.5 whisper_cpp_python==0.2.0 import datetime import os from uuid import uuid4 import requests import telebot from deep_translator import GoogleTranslator from dotenv import load_dotenv from llama_cpp import Llama from loguru import logger from telebot.types import Message from whisper_cpp_python import Whisper load_dotenv() TG_TOKEN = os.getenv("TG_TOKEN") bot = telebot.TeleBot(TG_TOKEN) # Загружаем llama-3 модель llm = Llama( model_path="./models/llama3/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf", chat_format="llama-3", verbose=False, # n_gpu_layers=-1, # Uncomment to use GPU acceleration # seed=1337, # Uncomment to set a specific seed # n_ctx=2048, # Uncomment to increase the context window ) # Загружаем whisper.cpp модель whisper_model = Whisper(model_path="./models/whisper/ggml-base.bin") # Словарь для хранения историй сообщений user_message_history = {} # Стартовое сообщение бота @bot.message_handler(commands=["start", "help"]) def send_welcome(message: Message): bot.send_message(message.chat.id, "Я ИИ бот на базе llama-3. Можешь отправить мне текстовое или голосовое сообщение.") # Вынесем логику работы с историей сообщений и llama моделью в отдельную функцию def create_chat_completion(user_id, text): # Получаем историю сообщений текущего пользователя user_history = user_message_history.get(user_id, []) user_history.append({"role": "user", "content": text}) # Добавим в контекст текущую дату и время current_date_time = datetime.datetime.now().strftime("%d %B %Y, %H:%M MSK") messages = [ { "role": "system", "content": f"Ты полезный ИИ помощник.\nТекущая дата: {current_date_time}", }, ] for msg in user_history[-10:]: messages.append(msg) out = llm.create_chat_completion(messages) reply = out["choices"][0]["message"]["content"] logger.info(f"assistant: {reply}") # Добавляем ответ бота в историю текущего пользователя user_history.append({"role": "assistant", "content": reply}) user_message_history[user_id] = user_history[-20:] return reply # Обработчик текстовых сообщений @bot.message_handler(content_types=["text"]) def message_handler(message: Message): chat_id = message.chat.id user_id = message.from_user.id logger.info(f"user {user_id}: {message.text}") bot.send_chat_action(chat_id, "typing") reply = create_chat_completion(user_id, message.text) # Отправляем ответ пользователю bot.send_message(chat_id, reply) Добавляем обработчик голосовых сообщений'><meta property="og:locale" content="ru-RU"><meta property="og:type" content="article"><meta property="article:section" content="posts"><meta property="article:published_time" content="2024-06-08T13:06:04+03:00"><meta property="article:modified_time" content="2024-06-08T13:06:04+03:00"><meta property="article:tag" content="Ai"><meta property="article:tag" content="Ии"><meta property="article:tag" content="Llm"><meta property="article:tag" content="Llama-3"><meta property="article:tag" content="Python"><meta property="article:tag" content="Telegram"><meta name=twitter:card content="summary"><meta name=twitter:title content="Добавляем ИИ боту распознавание голосовых сообщений"><meta name=twitter:description content='В продолжение предыдущей заметки давайте сделаем ещё один шаг и добавим возможность боту отвечать текстом на голосовые сообщения.
+Для распознования голоса будем использовать python обертку над whisper.cpp.
+Более подробно как работает бот смотрите предыдущий пост, тут я сделаю небольшой рефакторинг и добавлю новый обработчик для голосовых.
+Устанавливаем зависимости
+deep-translator==1.11.4
+llama_cpp_python==0.2.77
+loguru==0.7.2
+python-dotenv==1.0.1
+requests==2.32.3
+telebot==0.0.5
+whisper_cpp_python==0.2.0
+import datetime
+import os
+
+from uuid import uuid4
+
+import requests
+import telebot
+from deep_translator import GoogleTranslator
+from dotenv import load_dotenv
+from llama_cpp import Llama
+from loguru import logger
+from telebot.types import Message
+from whisper_cpp_python import Whisper
+
+load_dotenv()
+
+TG_TOKEN = os.getenv("TG_TOKEN")
+bot = telebot.TeleBot(TG_TOKEN)
+
+# Загружаем llama-3 модель
+llm = Llama(
+    model_path="./models/llama3/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf",
+    chat_format="llama-3",
+    verbose=False,
+    # n_gpu_layers=-1, # Uncomment to use GPU acceleration
+    # seed=1337, # Uncomment to set a specific seed
+    # n_ctx=2048, # Uncomment to increase the context window
+)
+
+# Загружаем whisper.cpp модель
+whisper_model = Whisper(model_path="./models/whisper/ggml-base.bin")
+
+# Словарь для хранения историй сообщений
+user_message_history = {}
+
+# Стартовое сообщение бота
+@bot.message_handler(commands=["start", "help"])
+def send_welcome(message: Message):
+    bot.send_message(message.chat.id, "Я ИИ бот на базе llama-3. Можешь отправить мне текстовое или голосовое сообщение.")
+
+
+# Вынесем логику работы с историей сообщений и llama моделью в отдельную функцию
+def create_chat_completion(user_id, text):
+    # Получаем историю сообщений текущего пользователя
+    user_history = user_message_history.get(user_id, [])
+    user_history.append({"role": "user", "content": text})
+
+    #  Добавим в контекст текущую дату и время
+    current_date_time = datetime.datetime.now().strftime("%d %B %Y, %H:%M MSK")
+    messages = [
+        {
+            "role": "system",
+            "content": f"Ты полезный ИИ помощник.\nТекущая дата: {current_date_time}",
+        },
+    ]
+
+    for msg in user_history[-10:]:
+        messages.append(msg)
+
+    out = llm.create_chat_completion(messages)
+    reply = out["choices"][0]["message"]["content"]
+    logger.info(f"assistant: {reply}")
+
+    # Добавляем ответ бота в историю текущего пользователя
+    user_history.append({"role": "assistant", "content": reply})
+    user_message_history[user_id] = user_history[-20:]
+
+    return reply
+
+# Обработчик текстовых сообщений
+@bot.message_handler(content_types=["text"])
+def message_handler(message: Message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    logger.info(f"user {user_id}: {message.text}")
+
+    bot.send_chat_action(chat_id, "typing")
+    reply = create_chat_completion(user_id, message.text)
+    # Отправляем ответ пользователю
+    bot.send_message(chat_id, reply)
+Добавляем обработчик голосовых сообщений'><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Посты","item":"https://coyotle.ru/posts/"},{"@type":"ListItem","position":2,"name":"Добавляем ИИ боту распознавание голосовых сообщений","item":"https://coyotle.ru/posts/simple-ai-bot-with-voice/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"Добавляем ИИ боту распознавание голосовых сообщений","name":"Добавляем ИИ боту распознавание голосовых сообщений","description":"В продолжение предыдущей заметки давайте сделаем ещё один шаг и добавим возможность боту отвечать текстом на голосовые сообщения. Для распознования голоса будем использовать python обертку над whisper.cpp.\nБолее подробно как работает бот смотрите предыдущий пост, тут я сделаю небольшой рефакторинг и добавлю новый обработчик для голосовых.\nУстанавливаем зависимости\ndeep-translator==1.11.4 llama_cpp_python==0.2.77 loguru==0.7.2 python-dotenv==1.0.1 requests==2.32.3 telebot==0.0.5 whisper_cpp_python==0.2.0 import datetime import os from uuid import uuid4 import requests import telebot from deep_translator import GoogleTranslator from dotenv import load_dotenv from llama_cpp import Llama from loguru import logger from telebot.types import Message from whisper_cpp_python import Whisper load_dotenv() TG_TOKEN = os.getenv(\u0026#34;TG_TOKEN\u0026#34;) bot = telebot.TeleBot(TG_TOKEN) # Загружаем llama-3 модель llm = Llama( model_path=\u0026#34;./models/llama3/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf\u0026#34;, chat_format=\u0026#34;llama-3\u0026#34;, verbose=False, # n_gpu_layers=-1, # Uncomment to use GPU acceleration # seed=1337, # Uncomment to set a specific seed # n_ctx=2048, # Uncomment to increase the context window ) # Загружаем whisper.cpp модель whisper_model = Whisper(model_path=\u0026#34;./models/whisper/ggml-base.bin\u0026#34;) # Словарь для хранения историй сообщений user_message_history = {} # Стартовое сообщение бота @bot.message_handler(commands=[\u0026#34;start\u0026#34;, \u0026#34;help\u0026#34;]) def send_welcome(message: Message): bot.send_message(message.chat.id, \u0026#34;Я ИИ бот на базе llama-3. Можешь отправить мне текстовое или голосовое сообщение.\u0026#34;) # Вынесем логику работы с историей сообщений и llama моделью в отдельную функцию def create_chat_completion(user_id, text): # Получаем историю сообщений текущего пользователя user_history = user_message_history.get(user_id, []) user_history.append({\u0026#34;role\u0026#34;: \u0026#34;user\u0026#34;, \u0026#34;content\u0026#34;: text}) # Добавим в контекст текущую дату и время current_date_time = datetime.datetime.now().strftime(\u0026#34;%d %B %Y, %H:%M MSK\u0026#34;) messages = [ { \u0026#34;role\u0026#34;: \u0026#34;system\u0026#34;, \u0026#34;content\u0026#34;: f\u0026#34;Ты полезный ИИ помощник.\\nТекущая дата: {current_date_time}\u0026#34;, }, ] for msg in user_history[-10:]: messages.append(msg) out = llm.create_chat_completion(messages) reply = out[\u0026#34;choices\u0026#34;][0][\u0026#34;message\u0026#34;][\u0026#34;content\u0026#34;] logger.info(f\u0026#34;assistant: {reply}\u0026#34;) # Добавляем ответ бота в историю текущего пользователя user_history.append({\u0026#34;role\u0026#34;: \u0026#34;assistant\u0026#34;, \u0026#34;content\u0026#34;: reply}) user_message_history[user_id] = user_history[-20:] return reply # Обработчик текстовых сообщений @bot.message_handler(content_types=[\u0026#34;text\u0026#34;]) def message_handler(message: Message): chat_id = message.chat.id user_id = message.from_user.id logger.info(f\u0026#34;user {user_id}: {message.text}\u0026#34;) bot.send_chat_action(chat_id, \u0026#34;typing\u0026#34;) reply = create_chat_completion(user_id, message.text) # Отправляем ответ пользователю bot.send_message(chat_id, reply) Добавляем обработчик голосовых сообщений\n","keywords":["ai","ии","llm","llama-3","python","telegram"],"articleBody":"В продолжение предыдущей заметки давайте сделаем ещё один шаг и добавим возможность боту отвечать текстом на голосовые сообщения. Для распознования голоса будем использовать python обертку над whisper.cpp.\nБолее подробно как работает бот смотрите предыдущий пост, тут я сделаю небольшой рефакторинг и добавлю новый обработчик для голосовых.\nУстанавливаем зависимости\ndeep-translator==1.11.4 llama_cpp_python==0.2.77 loguru==0.7.2 python-dotenv==1.0.1 requests==2.32.3 telebot==0.0.5 whisper_cpp_python==0.2.0 import datetime import os from uuid import uuid4 import requests import telebot from deep_translator import GoogleTranslator from dotenv import load_dotenv from llama_cpp import Llama from loguru import logger from telebot.types import Message from whisper_cpp_python import Whisper load_dotenv() TG_TOKEN = os.getenv(\"TG_TOKEN\") bot = telebot.TeleBot(TG_TOKEN) # Загружаем llama-3 модель llm = Llama( model_path=\"./models/llama3/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf\", chat_format=\"llama-3\", verbose=False, # n_gpu_layers=-1, # Uncomment to use GPU acceleration # seed=1337, # Uncomment to set a specific seed # n_ctx=2048, # Uncomment to increase the context window ) # Загружаем whisper.cpp модель whisper_model = Whisper(model_path=\"./models/whisper/ggml-base.bin\") # Словарь для хранения историй сообщений user_message_history = {} # Стартовое сообщение бота @bot.message_handler(commands=[\"start\", \"help\"]) def send_welcome(message: Message): bot.send_message(message.chat.id, \"Я ИИ бот на базе llama-3. Можешь отправить мне текстовое или голосовое сообщение.\") # Вынесем логику работы с историей сообщений и llama моделью в отдельную функцию def create_chat_completion(user_id, text): # Получаем историю сообщений текущего пользователя user_history = user_message_history.get(user_id, []) user_history.append({\"role\": \"user\", \"content\": text}) # Добавим в контекст текущую дату и время current_date_time = datetime.datetime.now().strftime(\"%d %B %Y, %H:%M MSK\") messages = [ { \"role\": \"system\", \"content\": f\"Ты полезный ИИ помощник.\\nТекущая дата: {current_date_time}\", }, ] for msg in user_history[-10:]: messages.append(msg) out = llm.create_chat_completion(messages) reply = out[\"choices\"][0][\"message\"][\"content\"] logger.info(f\"assistant: {reply}\") # Добавляем ответ бота в историю текущего пользователя user_history.append({\"role\": \"assistant\", \"content\": reply}) user_message_history[user_id] = user_history[-20:] return reply # Обработчик текстовых сообщений @bot.message_handler(content_types=[\"text\"]) def message_handler(message: Message): chat_id = message.chat.id user_id = message.from_user.id logger.info(f\"user {user_id}: {message.text}\") bot.send_chat_action(chat_id, \"typing\") reply = create_chat_completion(user_id, message.text) # Отправляем ответ пользователю bot.send_message(chat_id, reply) Добавляем обработчик голосовых сообщений\n@bot.message_handler(content_types=[\"voice\"]) def voice_handler(message: Message): chat_id = message.chat.id user_id = message.from_user.id logger.info(f\"get voice message from {user_id}\") logger.info(message.voice) # Получаем url фала голосового сообщения file_info = bot.get_file(message.voice.file_id) file_path = file_info.file_path file_url = f\"https://api.telegram.org/file/bot{TG_TOKEN}/{file_path}\" # Скачиваем OGG файл response = requests.get(file_url) ogg_file_path = f\"voice-{user_id}-{message.voice.file_id}.ogg\" with open(ogg_file_path, \"wb\") as f: f.write(response.content) bot.send_chat_action(chat_id, \"typing\") # Используем whisper.cpp для преобразования аудио в текст data = whisper_model.transcribe(ogg_file_path) logger.info(f\"whisper out: {data}\") text = data[\"text\"] # Используем llama для ответа на сообщение reply = create_chat_completion(user_id, text) reply = GoogleTranslator(source=\"auto\", target=\"ru\").translate(reply) # Отправляем ответ в чат bot.send_message(chat_id, reply) # Удаляем временный OGG файл os.remove(ogg_file_path) pass logger.info(\"bot is ready\") bot.infinity_polling() Обратите внимание, whisper преобразует русскую речь в текст на английском если не указать параметр language. Т.к. перевод получается вполне коррекнтым и llama-3 лучше работает с английским - оставляем как есть без указания языка и передаем llama-3 именно английский вариант транскрипции. А вот уже ответ полученный от llama-3 переводим на русский используя GoogleTranslator.\nТеперь бот должен уметь отвечать и на текстовые сообщения, и на голосовые. Спрашиваю как у бота дела: В логах бота:\nINFO | __main__:voice_handler:42 - get voice message from ..... INFO | __main__:voice_handler:43 - {'file_id': 'AwACBAAIDZ2ZkM4zzsj-tdSkAAUv0iDDv24QEgAACFk8AAragIUvSSFN8mxv-kDUE', 'file_unique_id': 'AgvDFe8AAragIUs', 'duration': 2, 'performer': None, 'title': None, 'file_name': None, 'mime_type': 'audio/ogg', 'file_size': 52877, 'thumbnail': None} INFO | __main__:voice_handler:58 - {'text': 'Hello, how are you doing?'} INFO | __main__:create_chat_completion:89 - assistant: I'm just an AI, I don't have feelings like humans do, but I'm functioning properly and ready to help with any questions or tasks you may have! It's great to chat with you. How about you? How's your day going so far? ","wordCount":"556","inLanguage":"ru","datePublished":"2024-06-08T13:06:04+03:00","dateModified":"2024-06-08T13:06:04+03:00","mainEntityOfPage":{"@type":"WebPage","@id":"https://coyotle.ru/posts/simple-ai-bot-with-voice/"},"publisher":{"@type":"Organization","name":"Мини-блог об IT, Linux, Open Source, Tech","logo":{"@type":"ImageObject","url":"https://coyotle.ru/favicon.ico"}}}</script></head><body id=top><header class=header><nav class=nav><div class=logo><a href=https://coyotle.ru/ accesskey=h title="Мини-блог об IT, Linux, Open Source, Tech (Alt + H)">Мини-блог об IT, Linux, Open Source, Tech</a><div class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)" aria-label="Toggle theme">
+<svg id="moon" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+<svg id="sun" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></div></div><ul id=menu><li><a href=https://coyotle.ru/tags/ title=тэги><span>тэги</span></a></li><li><a href=https://coyotle.ru/about/ title="обо мне"><span>обо мне</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><h1 class="post-title entry-hint-parent">Добавляем ИИ боту распознавание голосовых сообщений</h1><div class=post-meta><span title='2024-06-08 13:06:04 +0300 +0300'>8 июня 2024</span></div></header><div class=post-content><p>В продолжение <a href=/posts/simple-ai-bot/>предыдущей заметки</a> давайте сделаем ещё один шаг и добавим возможность боту отвечать текстом на голосовые сообщения.
+Для распознования голоса будем использовать python обертку над whisper.cpp.</p><p>Более подробно как работает бот смотрите предыдущий пост, тут я сделаю небольшой рефакторинг и добавлю новый обработчик для голосовых.</p><p>Устанавливаем зависимости</p><pre tabindex=0><code>deep-translator==1.11.4
+llama_cpp_python==0.2.77
+loguru==0.7.2
+python-dotenv==1.0.1
+requests==2.32.3
+telebot==0.0.5
+whisper_cpp_python==0.2.0
+</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>import</span> <span class=nn>datetime</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>os</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>uuid</span> <span class=kn>import</span> <span class=n>uuid4</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>requests</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>telebot</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>deep_translator</span> <span class=kn>import</span> <span class=n>GoogleTranslator</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>dotenv</span> <span class=kn>import</span> <span class=n>load_dotenv</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>llama_cpp</span> <span class=kn>import</span> <span class=n>Llama</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>loguru</span> <span class=kn>import</span> <span class=n>logger</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>telebot.types</span> <span class=kn>import</span> <span class=n>Message</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>whisper_cpp_python</span> <span class=kn>import</span> <span class=n>Whisper</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>load_dotenv</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>TG_TOKEN</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>getenv</span><span class=p>(</span><span class=s2>&#34;TG_TOKEN&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=n>bot</span> <span class=o>=</span> <span class=n>telebot</span><span class=o>.</span><span class=n>TeleBot</span><span class=p>(</span><span class=n>TG_TOKEN</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Загружаем llama-3 модель</span>
+</span></span><span class=line><span class=cl><span class=n>llm</span> <span class=o>=</span> <span class=n>Llama</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=n>model_path</span><span class=o>=</span><span class=s2>&#34;./models/llama3/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=n>chat_format</span><span class=o>=</span><span class=s2>&#34;llama-3&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=n>verbose</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=c1># n_gpu_layers=-1, # Uncomment to use GPU acceleration</span>
+</span></span><span class=line><span class=cl>    <span class=c1># seed=1337, # Uncomment to set a specific seed</span>
+</span></span><span class=line><span class=cl>    <span class=c1># n_ctx=2048, # Uncomment to increase the context window</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Загружаем whisper.cpp модель</span>
+</span></span><span class=line><span class=cl><span class=n>whisper_model</span> <span class=o>=</span> <span class=n>Whisper</span><span class=p>(</span><span class=n>model_path</span><span class=o>=</span><span class=s2>&#34;./models/whisper/ggml-base.bin&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Словарь для хранения историй сообщений</span>
+</span></span><span class=line><span class=cl><span class=n>user_message_history</span> <span class=o>=</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Стартовое сообщение бота</span>
+</span></span><span class=line><span class=cl><span class=nd>@bot.message_handler</span><span class=p>(</span><span class=n>commands</span><span class=o>=</span><span class=p>[</span><span class=s2>&#34;start&#34;</span><span class=p>,</span> <span class=s2>&#34;help&#34;</span><span class=p>])</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>send_welcome</span><span class=p>(</span><span class=n>message</span><span class=p>:</span> <span class=n>Message</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>bot</span><span class=o>.</span><span class=n>send_message</span><span class=p>(</span><span class=n>message</span><span class=o>.</span><span class=n>chat</span><span class=o>.</span><span class=n>id</span><span class=p>,</span> <span class=s2>&#34;Я ИИ бот на базе llama-3. Можешь отправить мне текстовое или голосовое сообщение.&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Вынесем логику работы с историей сообщений и llama моделью в отдельную функцию</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>create_chat_completion</span><span class=p>(</span><span class=n>user_id</span><span class=p>,</span> <span class=n>text</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=c1># Получаем историю сообщений текущего пользователя</span>
+</span></span><span class=line><span class=cl>    <span class=n>user_history</span> <span class=o>=</span> <span class=n>user_message_history</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>user_id</span><span class=p>,</span> <span class=p>[])</span>
+</span></span><span class=line><span class=cl>    <span class=n>user_history</span><span class=o>.</span><span class=n>append</span><span class=p>({</span><span class=s2>&#34;role&#34;</span><span class=p>:</span> <span class=s2>&#34;user&#34;</span><span class=p>,</span> <span class=s2>&#34;content&#34;</span><span class=p>:</span> <span class=n>text</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>#  Добавим в контекст текущую дату и время</span>
+</span></span><span class=line><span class=cl>    <span class=n>current_date_time</span> <span class=o>=</span> <span class=n>datetime</span><span class=o>.</span><span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>()</span><span class=o>.</span><span class=n>strftime</span><span class=p>(</span><span class=s2>&#34;</span><span class=si>%d</span><span class=s2> %B %Y, %H:%M MSK&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>messages</span> <span class=o>=</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>        <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;role&#34;</span><span class=p>:</span> <span class=s2>&#34;system&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;content&#34;</span><span class=p>:</span> <span class=sa>f</span><span class=s2>&#34;Ты полезный ИИ помощник.</span><span class=se>\n</span><span class=s2>Текущая дата: </span><span class=si>{</span><span class=n>current_date_time</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=n>msg</span> <span class=ow>in</span> <span class=n>user_history</span><span class=p>[</span><span class=o>-</span><span class=mi>10</span><span class=p>:]:</span>
+</span></span><span class=line><span class=cl>        <span class=n>messages</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>msg</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>out</span> <span class=o>=</span> <span class=n>llm</span><span class=o>.</span><span class=n>create_chat_completion</span><span class=p>(</span><span class=n>messages</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>reply</span> <span class=o>=</span> <span class=n>out</span><span class=p>[</span><span class=s2>&#34;choices&#34;</span><span class=p>][</span><span class=mi>0</span><span class=p>][</span><span class=s2>&#34;message&#34;</span><span class=p>][</span><span class=s2>&#34;content&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>    <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;assistant: </span><span class=si>{</span><span class=n>reply</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Добавляем ответ бота в историю текущего пользователя</span>
+</span></span><span class=line><span class=cl>    <span class=n>user_history</span><span class=o>.</span><span class=n>append</span><span class=p>({</span><span class=s2>&#34;role&#34;</span><span class=p>:</span> <span class=s2>&#34;assistant&#34;</span><span class=p>,</span> <span class=s2>&#34;content&#34;</span><span class=p>:</span> <span class=n>reply</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=n>user_message_history</span><span class=p>[</span><span class=n>user_id</span><span class=p>]</span> <span class=o>=</span> <span class=n>user_history</span><span class=p>[</span><span class=o>-</span><span class=mi>20</span><span class=p>:]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>reply</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Обработчик текстовых сообщений</span>
+</span></span><span class=line><span class=cl><span class=nd>@bot.message_handler</span><span class=p>(</span><span class=n>content_types</span><span class=o>=</span><span class=p>[</span><span class=s2>&#34;text&#34;</span><span class=p>])</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>message_handler</span><span class=p>(</span><span class=n>message</span><span class=p>:</span> <span class=n>Message</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>chat_id</span> <span class=o>=</span> <span class=n>message</span><span class=o>.</span><span class=n>chat</span><span class=o>.</span><span class=n>id</span>
+</span></span><span class=line><span class=cl>    <span class=n>user_id</span> <span class=o>=</span> <span class=n>message</span><span class=o>.</span><span class=n>from_user</span><span class=o>.</span><span class=n>id</span>
+</span></span><span class=line><span class=cl>    <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;user </span><span class=si>{</span><span class=n>user_id</span><span class=si>}</span><span class=s2>: </span><span class=si>{</span><span class=n>message</span><span class=o>.</span><span class=n>text</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>bot</span><span class=o>.</span><span class=n>send_chat_action</span><span class=p>(</span><span class=n>chat_id</span><span class=p>,</span> <span class=s2>&#34;typing&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>reply</span> <span class=o>=</span> <span class=n>create_chat_completion</span><span class=p>(</span><span class=n>user_id</span><span class=p>,</span> <span class=n>message</span><span class=o>.</span><span class=n>text</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=c1># Отправляем ответ пользователю</span>
+</span></span><span class=line><span class=cl>    <span class=n>bot</span><span class=o>.</span><span class=n>send_message</span><span class=p>(</span><span class=n>chat_id</span><span class=p>,</span> <span class=n>reply</span><span class=p>)</span>
+</span></span></code></pre></div><p>Добавляем обработчик голосовых сообщений</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=nd>@bot.message_handler</span><span class=p>(</span><span class=n>content_types</span><span class=o>=</span><span class=p>[</span><span class=s2>&#34;voice&#34;</span><span class=p>])</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>voice_handler</span><span class=p>(</span><span class=n>message</span><span class=p>:</span> <span class=n>Message</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>chat_id</span> <span class=o>=</span> <span class=n>message</span><span class=o>.</span><span class=n>chat</span><span class=o>.</span><span class=n>id</span>
+</span></span><span class=line><span class=cl>    <span class=n>user_id</span> <span class=o>=</span> <span class=n>message</span><span class=o>.</span><span class=n>from_user</span><span class=o>.</span><span class=n>id</span>
+</span></span><span class=line><span class=cl>    <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;get voice message from </span><span class=si>{</span><span class=n>user_id</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=n>message</span><span class=o>.</span><span class=n>voice</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Получаем url фала голосового сообщения</span>
+</span></span><span class=line><span class=cl>    <span class=n>file_info</span> <span class=o>=</span> <span class=n>bot</span><span class=o>.</span><span class=n>get_file</span><span class=p>(</span><span class=n>message</span><span class=o>.</span><span class=n>voice</span><span class=o>.</span><span class=n>file_id</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>file_path</span> <span class=o>=</span> <span class=n>file_info</span><span class=o>.</span><span class=n>file_path</span>
+</span></span><span class=line><span class=cl>    <span class=n>file_url</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>&#34;https://api.telegram.org/file/bot</span><span class=si>{</span><span class=n>TG_TOKEN</span><span class=si>}</span><span class=s2>/</span><span class=si>{</span><span class=n>file_path</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Скачиваем OGG файл</span>
+</span></span><span class=line><span class=cl>    <span class=n>response</span> <span class=o>=</span> <span class=n>requests</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>file_url</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>ogg_file_path</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>&#34;voice-</span><span class=si>{</span><span class=n>user_id</span><span class=si>}</span><span class=s2>-</span><span class=si>{</span><span class=n>message</span><span class=o>.</span><span class=n>voice</span><span class=o>.</span><span class=n>file_id</span><span class=si>}</span><span class=s2>.ogg&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=k>with</span> <span class=nb>open</span><span class=p>(</span><span class=n>ogg_file_path</span><span class=p>,</span> <span class=s2>&#34;wb&#34;</span><span class=p>)</span> <span class=k>as</span> <span class=n>f</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>f</span><span class=o>.</span><span class=n>write</span><span class=p>(</span><span class=n>response</span><span class=o>.</span><span class=n>content</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>bot</span><span class=o>.</span><span class=n>send_chat_action</span><span class=p>(</span><span class=n>chat_id</span><span class=p>,</span> <span class=s2>&#34;typing&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Используем whisper.cpp для преобразования аудио в текст</span>
+</span></span><span class=line><span class=cl>    <span class=n>data</span> <span class=o>=</span> <span class=n>whisper_model</span><span class=o>.</span><span class=n>transcribe</span><span class=p>(</span><span class=n>ogg_file_path</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;whisper out: </span><span class=si>{</span><span class=n>data</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>text</span> <span class=o>=</span> <span class=n>data</span><span class=p>[</span><span class=s2>&#34;text&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Используем llama для ответа на сообщение</span>
+</span></span><span class=line><span class=cl>    <span class=n>reply</span> <span class=o>=</span> <span class=n>create_chat_completion</span><span class=p>(</span><span class=n>user_id</span><span class=p>,</span> <span class=n>text</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>reply</span> <span class=o>=</span> <span class=n>GoogleTranslator</span><span class=p>(</span><span class=n>source</span><span class=o>=</span><span class=s2>&#34;auto&#34;</span><span class=p>,</span> <span class=n>target</span><span class=o>=</span><span class=s2>&#34;ru&#34;</span><span class=p>)</span><span class=o>.</span><span class=n>translate</span><span class=p>(</span><span class=n>reply</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Отправляем ответ в чат</span>
+</span></span><span class=line><span class=cl>    <span class=n>bot</span><span class=o>.</span><span class=n>send_message</span><span class=p>(</span><span class=n>chat_id</span><span class=p>,</span> <span class=n>reply</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Удаляем временный OGG файл</span>
+</span></span><span class=line><span class=cl>    <span class=n>os</span><span class=o>.</span><span class=n>remove</span><span class=p>(</span><span class=n>ogg_file_path</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>pass</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=s2>&#34;bot is ready&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=n>bot</span><span class=o>.</span><span class=n>infinity_polling</span><span class=p>()</span>
+</span></span></code></pre></div><p>Обратите внимание, whisper преобразует русскую речь в текст на английском если не указать параметр <code>language</code>.
+Т.к. перевод получается вполне коррекнтым и llama-3 лучше работает с английским - оставляем как есть без указания языка и передаем llama-3 именно английский вариант транскрипции.
+А вот уже ответ полученный от llama-3 переводим на русский используя GoogleTranslator.</p><p>Теперь бот должен уметь отвечать и на текстовые сообщения, и на голосовые. Спрашиваю как у бота дела:
+<img loading=lazy src=/posts/simple-ai-bot-with-voice/test-message.png></p><p>В логах бота:</p><pre tabindex=0><code>INFO | __main__:voice_handler:42 - get voice message from .....
+INFO | __main__:voice_handler:43 - {&#39;file_id&#39;: &#39;AwACBAAIDZ2ZkM4zzsj-tdSkAAUv0iDDv24QEgAACFk8AAragIUvSSFN8mxv-kDUE&#39;, &#39;file_unique_id&#39;: &#39;AgvDFe8AAragIUs&#39;, &#39;duration&#39;: 2, &#39;performer&#39;: None, &#39;title&#39;: None, &#39;file_name&#39;: None, &#39;mime_type&#39;: &#39;audio/ogg&#39;, &#39;file_size&#39;: 52877, &#39;thumbnail&#39;: None}
+INFO | __main__:voice_handler:58 - {&#39;text&#39;: &#39;Hello, how are you doing?&#39;}
+INFO | __main__:create_chat_completion:89 - assistant: I&#39;m just an AI, I don&#39;t have feelings like humans do, but I&#39;m functioning properly and ready to help with any questions or tasks you may have! It&#39;s great to chat with you. How about you? How&#39;s your day going so far?
+</code></pre></div><footer class=post-footer><ul class=post-tags><li><a href=https://coyotle.ru/tags/ai/>Ai</a></li><li><a href=https://coyotle.ru/tags/%D0%B8%D0%B8/>Ии</a></li><li><a href=https://coyotle.ru/tags/llm/>Llm</a></li><li><a href=https://coyotle.ru/tags/llama-3/>Llama-3</a></li><li><a href=https://coyotle.ru/tags/python/>Python</a></li><li><a href=https://coyotle.ru/tags/telegram/>Telegram</a></li></ul><nav class=paginav><a class=prev href=https://coyotle.ru/posts/obsidian-live-sync-upd/><span class=title>« Предыдущая</span><br><span>Синхронизация Obsidian [upd]</span>
+</a><a class=next href=https://coyotle.ru/posts/simple-ai-bot/><span class=title>Следующая »</span><br><span>Простой llama-3 телеграм бот</span></a></nav></footer><div class=comments></div><script>function setComments(e){let t=document.createElement("script");t.src="https://utteranc.es/client.js",t.setAttribute("id","comments-script"),t.setAttribute("repo","coyotle/blog"),t.setAttribute("issue-term","pathname"),t.setAttribute("theme",e),t.setAttribute("label","comment"),t.setAttribute("crossorigin","anonymous"),t.setAttribute("async",""),document.querySelector("div.comments").innerHTML="",document.querySelector("div.comments").appendChild(t)}document.getElementById("theme-toggle").addEventListener("click",()=>{setComments(document.body.className.includes("dark")?"github-light":"github-dark")});let theme=document.body.className.includes("dark")?"github-dark":"github-light";setComments(theme)</script></article></main><footer class=footer><span>&copy; 2025 <a href=https://coyotle.ru/>Мини-блог об IT, Linux, Open Source, Tech</a></span> ·
+<span>Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+<a href=https://github.com/adityatelange/hugo-PaperMod/ rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg viewBox="0 0 12 6" fill="currentColor"><path d="M12 6H0l6-6z"/></svg>
+</a><script>let menu=document.getElementById("menu");if(menu){const e=localStorage.getItem("menu-scroll-position");e&&(menu.scrollLeft=parseInt(e,10)),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}}document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{const e=document.querySelector("html");e.dataset.theme==="dark"?(e.dataset.theme="light",localStorage.setItem("pref-theme","light")):(e.dataset.theme="dark",localStorage.setItem("pref-theme","dark"))})</script><script>document.querySelectorAll("pre > code").forEach(e=>{const n=e.parentNode.parentNode,t=document.createElement("button");t.classList.add("copy-code"),t.innerHTML="копировать";function s(){t.innerHTML="скопировано!",setTimeout(()=>{t.innerHTML="копировать"},2e3)}t.addEventListener("click",t=>{if("clipboard"in navigator){navigator.clipboard.writeText(e.textContent),s();return}const n=document.createRange();n.selectNodeContents(e);const o=window.getSelection();o.removeAllRanges(),o.addRange(n);try{document.execCommand("copy"),s()}catch{}o.removeRange(n)}),n.classList.contains("highlight")?n.appendChild(t):n.parentNode.firstChild==n||(e.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName=="TABLE"?e.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(t):e.parentNode.appendChild(t))})</script></body></html>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Vxlan on Мини-блог об IT, Linux, Open Source, Tech</title><link>https://coyotle.ru/tags/vxlan/</link><description>Recent content in Vxlan on Мини-блог об IT, Linux, Open Source, Tech</description><generator>Hugo -- 0.152.2</generator><language>ru-RU</language><lastBuildDate>Mon, 30 May 2022 21:09:22 +0300</lastBuildDate><atom:link href="https://coyotle.ru/tags/vxlan/index.xml" rel="self" type="application/rss+xml"/><item><title>Настройка VXLAN</title><link>https://coyotle.ru/posts/vxlan-setup/</link><pubDate>Mon, 30 May 2022 21:09:22 +0300</pubDate><guid>https://coyotle.ru/posts/vxlan-setup/</guid><description>&lt;p&gt;Функциональность VXLAN (Virtual eXtensible LAN) позволяет динамично распределять ресурсы внутри центров обработки данных или между ними и дает возможность переносить виртуальные машины и контейнеры между серверами, которые существуют в отдельных сетях уровня 2, путем туннелирования трафика через сети уровня 3.&lt;/p&gt;
+&lt;p&gt;Настроим VXLAN overlay сеть между мостами нескольких linux хостов.&lt;/p&gt;
+&lt;p&gt;Два хоста находятся в одной сети:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;host-1 - eth0 - 192.168.0.101&lt;/li&gt;
+&lt;li&gt;host-2 - eth0 - 192.168.0.102&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Третий хост в другой сети:&lt;/p&gt;</description></item></channel></rss>

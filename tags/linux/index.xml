@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Linux on Мини-блог об IT, Linux, Open Source, Tech</title><link>https://coyotle.ru/tags/linux/</link><description>Recent content in Linux on Мини-блог об IT, Linux, Open Source, Tech</description><generator>Hugo -- 0.152.2</generator><language>ru-RU</language><lastBuildDate>Fri, 28 Nov 2025 14:00:13 +0300</lastBuildDate><atom:link href="https://coyotle.ru/tags/linux/index.xml" rel="self" type="application/rss+xml"/><item><title>Есть ли смысл в CachyOS и прочих клонах Arch Linux?</title><link>https://coyotle.ru/posts/arch-clones/</link><pubDate>Fri, 28 Nov 2025 14:00:13 +0300</pubDate><guid>https://coyotle.ru/posts/arch-clones/</guid><description>&lt;p&gt;От скуки прикрутил к своему Arch репозитории от CachyOS, установил ядро, обновил пакеты и получил обновленную систему. Разработчики заявляют, что их оптимизации дают около 10% прироста производительности. Субъективно я никакого увеличения скорости или отзывчивости не заметил. Единственное, что бросилось в глаза — сломались глобальные шорткаты в Gnome. Не знаю, совпадение это или нет.&lt;/p&gt;
+&lt;p&gt;Потом решил поискать в сети объективные цифры и тесты. Нашел несколько видео, где сравнивают производительность в современных играх, и результат оказался&amp;hellip; нулевым. Разница составила плюс-минус 1 FPS по сравнению с ванильным Arch! ОДИН фпс, Карл!&lt;/p&gt;</description></item><item><title>Миграция с wireguard на amneziawg</title><link>https://coyotle.ru/posts/amnezia/</link><pubDate>Fri, 15 Nov 2024 10:12:04 +0300</pubDate><guid>https://coyotle.ru/posts/amnezia/</guid><description>&lt;p&gt;После каких-то очередных манипуляций на Ростелекоме мой wireguarg туннель приказал долго жить (как и IPv6 почему-то), поэтому перехожу на amneziawg. Amneziawg - это форк wg поддерживающий добавление шума в стандартный протокол wireguard.&lt;/p&gt;
+&lt;p&gt;Понятно, что в час Х, когда государство решит закрутить гайки, этот протокол будет легко забанен, но пока он работает и можно пользоваться.
+На крайний случай останется wg через vless, хотя скорость в таком случае не очень.&lt;/p&gt;
+&lt;h2 id="установка-в-ubuntu"&gt;Установка в Ubuntu&lt;/h2&gt;
+&lt;p&gt;Включаем источники src пакетов (deb-src) в &lt;code&gt;/etc/apt/sources.list.d/ubuntu.sources&lt;/code&gt;&lt;/p&gt;</description></item><item><title>Проброс портов через Xray реверс-прокси</title><link>https://coyotle.ru/posts/xray-proxy/</link><pubDate>Thu, 04 Jan 2024 19:10:04 +0300</pubDate><guid>https://coyotle.ru/posts/xray-proxy/</guid><description>&lt;p&gt;В заметке опишу как организовать доступ к серверу в локальной сети через Xray. Про базовую настройку Xray можно посмотреть &lt;a href="https://coyotle.ru/posts/xray-and-nginx/"&gt;тут&lt;/a&gt;.
+&lt;img alt="Схема" loading="lazy" src="https://coyotle.ru/posts/xray-proxy/proxy.png"&gt;&lt;/p&gt;
+&lt;p&gt;В терминологии xray схема с реверс-прокси состоит из двух участников: &lt;code&gt;portal&lt;/code&gt; и &lt;code&gt;bridge&lt;/code&gt;.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Portal - это сервер который доступен из интернет и который выполняет роль реверс-прокси.&lt;/li&gt;
+&lt;li&gt;Bridge - сервер/клиент который находится в приватной сети и через который осуществляется доступ к ресурсу в приватной сети.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Допустим у нас в локальной сети есть веб-сервер без публичного IP и мы хотим опубликовать его через xray portal.
+Клиенты из интернет будут подключаться к публичному серверу А и через служебный канал (vless, shadowsocks&amp;hellip;) между A и B получать доступ к приватному серверу.&lt;/p&gt;</description></item><item><title>Xray с XTLS-Reality и Nginx на одном порту</title><link>https://coyotle.ru/posts/xray-and-nginx/</link><pubDate>Sun, 13 Aug 2023 18:12:04 +0300</pubDate><guid>https://coyotle.ru/posts/xray-and-nginx/</guid><description>&lt;p&gt;Что делаем? Настроим так чтобы на одном порту &lt;code&gt;443&lt;/code&gt; висел и nginx с нашими сайтами и xray XTLS-Reality, который работает как прокси для авторизованных пользователей и притворяется валидным сайтом (в примере &lt;a href="https://www.google.com"&gt;www.google.com&lt;/a&gt;) для всех остальных.&lt;/p&gt;
+&lt;p&gt;XTLS-Reality предназначен для защиты от выявления методом active probing. В отличие от старых протоколов (Shadowsocks, VMess, VLESS, и транспорта XTLS-Vision), определение “свой/чужой” здесь происходит на этапе TLS-хендшейка в момент чтения ClientHello. Если клиент опознан как “свой”, сервер работает как прокси, а если нет - TLS подключение передается на другой хост с TLS (например, google.com), и таким образом клиент (или цензор, желающий методом active probing проверить, что прячется на том конце) получит настоящий TLS-сертификат от google.com и настоящие данные с этого сервера.&lt;/p&gt;</description></item><item><title>Обновление маршрутов</title><link>https://coyotle.ru/posts/update-vpn-routes/</link><pubDate>Mon, 23 Jan 2023 18:12:27 +0300</pubDate><guid>https://coyotle.ru/posts/update-vpn-routes/</guid><description>&lt;p&gt;Надоело вручную обновлять на роутере список маршрутов для блокировки запрещенных сайтов. Я дополнительно блокировал не всё подряд, а буквально несколько сайтов, но всё равно надоело, поэтому написал небольшой скрипт для автоматизации рутины. Интерфейс &lt;code&gt;tun0&lt;/code&gt; терминирует все подключения в &lt;code&gt;/dev/null&lt;/code&gt; если что.&lt;/p&gt;
+&lt;p&gt;Скрипт скачивает список адресов которые надо заблокировать с &lt;a href="https://antifilter.download/"&gt;https://antifilter.download/&lt;/a&gt; в файл &lt;code&gt;ipsum_new&lt;/code&gt; и немного фильтрует чтобы избежать подстановок, сравнивает с предыдущей версией списка в &lt;code&gt;ipsum_cur&lt;/code&gt; и помещает разницу в &lt;code&gt;ipsum_diff&lt;/code&gt;.
+Затем берём разницу и добавляем или удаляем маршрут в таблице маршрутизации в зависимости от знака + или - в diff-файле.
+В конце скрипта замещаем текущий &lt;code&gt;ipsum_cur&lt;/code&gt; новым файлом.&lt;/p&gt;</description></item><item><title>Удаляем Recent и Starred в Nautilus</title><link>https://coyotle.ru/posts/nautilus-tweak/</link><pubDate>Tue, 03 Jan 2023 18:55:56 +0300</pubDate><guid>https://coyotle.ru/posts/nautilus-tweak/</guid><description>&lt;p&gt;Нравится минималистичный вид Gnome &amp;#x2764;&amp;#xfe0f;, но иногда не хватает настроек.
+Например я не пользуюсь в Nautilus функцией &lt;em&gt;Избранное&lt;/em&gt; и &lt;em&gt;Недавние&lt;/em&gt;, но они всегда отображаются в меню и занимают место.
+Опишу как удалить из боковой панели закладки на эти разделы и изменить ширину боковой панели.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Проверено в Fedora Linux 37, Gnome 43.2&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id="переопределение-встроенного-описания-ui"&gt;Переопределение встроенного описания UI&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Создаем каталог для переопределяемого ресурса:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;mkdir ~/.config/nautilus/ui
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Извлекаем из приложения ресурс с описанием главного окна:&lt;/p&gt;</description></item><item><title>Настройка Teaming</title><link>https://coyotle.ru/posts/teaming-setup/</link><pubDate>Wed, 28 Sep 2022 23:39:12 +0300</pubDate><guid>https://coyotle.ru/posts/teaming-setup/</guid><description>&lt;p&gt;Коротенько опишу как настроить Network Teaming или Team в Linux. Технология служит для агрегации портов с целью увеличения пропускной способности и обеспечения отказоустойчивости сети.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sudo apt install libteam-utils
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class="highlight"&gt;&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;teamnl team0 getoption mode
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;*NOMODE*
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id="типы-режимов"&gt;Типы режимов&lt;/h2&gt;
+&lt;p&gt;Есть пять режимов работы, в основном используются первые три:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;activebackup&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;roundrobin&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;loadbalance&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;broadcast&lt;/li&gt;
+&lt;li&gt;lacp&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="activebackup"&gt;activebackup&lt;/h3&gt;
+&lt;p&gt;Один порт находится в активном состоянии, остальные в запасе. При пропадании линка на активном порту активный порт меняется на другой доступный.&lt;/p&gt;</description></item><item><title>Настройка VXLAN</title><link>https://coyotle.ru/posts/vxlan-setup/</link><pubDate>Mon, 30 May 2022 21:09:22 +0300</pubDate><guid>https://coyotle.ru/posts/vxlan-setup/</guid><description>&lt;p&gt;Функциональность VXLAN (Virtual eXtensible LAN) позволяет динамично распределять ресурсы внутри центров обработки данных или между ними и дает возможность переносить виртуальные машины и контейнеры между серверами, которые существуют в отдельных сетях уровня 2, путем туннелирования трафика через сети уровня 3.&lt;/p&gt;
+&lt;p&gt;Настроим VXLAN overlay сеть между мостами нескольких linux хостов.&lt;/p&gt;
+&lt;p&gt;Два хоста находятся в одной сети:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;host-1 - eth0 - 192.168.0.101&lt;/li&gt;
+&lt;li&gt;host-2 - eth0 - 192.168.0.102&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Третий хост в другой сети:&lt;/p&gt;</description></item></channel></rss>
